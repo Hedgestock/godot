@@ -45,6 +45,7 @@ class CollisionShape2D : public Node2D {
 	bool one_way_collision = false;
 	real_t one_way_collision_margin = 1.0;
 	Vector2 one_way_collision_direction = Vector2(0.0, 1.0);
+	bool rendering = false;
 
 	void _shape_changed();
 	void _update_in_shape_owner(bool p_xform_only = false);
@@ -89,6 +90,9 @@ public:
 
 	void set_debug_color(const Color &p_color);
 	Color get_debug_color() const;
+
+	void set_rendering(bool p_disabled);
+	bool is_rendering() const;
 
 	PackedStringArray get_configuration_warnings() const override;
 

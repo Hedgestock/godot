@@ -86,7 +86,7 @@ void CollisionShape2D::_notification(int p_what) {
 		case NOTIFICATION_DRAW: {
 			ERR_FAIL_COND(!is_inside_tree());
 
-			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint()) {
+			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint() && !is_rendering()) {
 				break;
 			}
 
@@ -263,6 +263,15 @@ Color CollisionShape2D::get_debug_color() const {
 	return debug_color;
 }
 
+void CollisionShape2D::set_rendering(bool p_rendering) {
+	rendering = p_rendering;
+	queue_redraw();
+}
+
+bool CollisionShape2D::is_rendering() const {
+	return rendering;
+}
+
 #ifdef DEBUG_ENABLED
 
 bool CollisionShape2D::_property_can_revert(const StringName &p_name) const {
@@ -317,6 +326,11 @@ void CollisionShape2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::COLOR, "debug_color"), "set_debug_color", "get_debug_color");
 	// Default value depends on a project setting, override for doc generation purposes.
 	ADD_PROPERTY_DEFAULT("debug_color", Color(0.0, 0.0, 0.0, 0.0));
+
+	ClassDB::bind_method(D_METHOD("set_rendering", "rendering"), &CollisionShape2D::set_rendering);
+	ClassDB::bind_method(D_METHOD("is_rendering"), &CollisionShape2D::is_rendering);
+
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rendering"), "set_rendering", "is_rendering");
 }
 
 CollisionShape2D::CollisionShape2D() {
