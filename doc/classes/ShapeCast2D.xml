@@ -145,6 +145,9 @@
 		<member name="enabled" type="bool" setter="set_enabled" getter="is_enabled" default="true">
 			If [code]true[/code], collisions will be reported.
 		</member>
+		<member name="rendering" type="bool" setter="set_rendering" getter="is_rendering" default="false">
+			Sets whether the shape used for casting should render to the screen.
+		</member>
 		<member name="exclude_parent" type="bool" setter="set_exclude_parent_body" getter="get_exclude_parent_body" default="true">
 			If [code]true[/code], the parent node will be excluded from collision detection.
 		</member>

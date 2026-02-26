@@ -52,6 +52,8 @@ class ShapeCast2D : public Node2D {
 	bool collide_with_areas = false;
 	bool collide_with_bodies = true;
 
+	bool rendering = false;
+
 	// Result
 	int max_results = 32;
 	Vector<PhysicsDirectSpaceState2D::ShapeRestInfo> result;
@@ -75,6 +77,9 @@ public:
 
 	void set_enabled(bool p_enabled);
 	bool is_enabled() const;
+
+	void set_rendering(bool p_rendering);
+	bool is_rendering() const;
 
 	void set_shape(const Ref<Shape2D> &p_shape);
 	Ref<Shape2D> get_shape() const;

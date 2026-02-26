@@ -37,7 +37,7 @@
 
 void ShapeCast2D::set_target_position(const Vector2 &p_point) {
 	target_position = p_point;
-	if (is_inside_tree() && (Engine::get_singleton()->is_editor_hint() || get_tree()->is_debugging_collisions_hint())) {
+	if (is_inside_tree() && (Engine::get_singleton()->is_editor_hint() || get_tree()->is_debugging_collisions_hint() || is_rendering())) {
 		queue_redraw();
 	}
 }
@@ -221,7 +221,7 @@ void ShapeCast2D::_notification(int p_what) {
 		case NOTIFICATION_DRAW: {
 #ifdef TOOLS_ENABLED
 			ERR_FAIL_COND(!is_inside_tree());
-			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint()) {
+			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint() && !is_rendering()) {
 				break;
 			}
 			if (shape.is_null()) {
@@ -401,6 +401,15 @@ Array ShapeCast2D::get_collision_result() const {
 	return ret;
 }
 
+void ShapeCast2D::set_rendering(bool p_rendering) {
+	rendering = p_rendering;
+	queue_redraw();
+}
+
+bool ShapeCast2D::is_rendering() const {
+	return rendering;
+}
+
 PackedStringArray ShapeCast2D::get_configuration_warnings() const {
 	PackedStringArray warnings = Node2D::get_configuration_warnings();
 
@@ -457,6 +466,9 @@ void ShapeCast2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_exclude_parent_body", "mask"), &ShapeCast2D::set_exclude_parent_body);
 	ClassDB::bind_method(D_METHOD("get_exclude_parent_body"), &ShapeCast2D::get_exclude_parent_body);
 
+	ClassDB::bind_method(D_METHOD("set_rendering", "rendering"), &ShapeCast2D::set_rendering);
+	ClassDB::bind_method(D_METHOD("is_rendering"), &ShapeCast2D::is_rendering);
+
 	ClassDB::bind_method(D_METHOD("set_collide_with_areas", "enable"), &ShapeCast2D::set_collide_with_areas);
 	ClassDB::bind_method(D_METHOD("is_collide_with_areas_enabled"), &ShapeCast2D::is_collide_with_areas_enabled);
 
@@ -473,6 +485,7 @@ void ShapeCast2D::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "max_results"), "set_max_results", "get_max_results");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::ARRAY, "collision_result", PROPERTY_HINT_NONE, "", PROPERTY_USAGE_NO_EDITOR), "", "get_collision_result");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rendering"), "set_rendering", "is_rendering");
 	ADD_GROUP("Collide With", "collide_with");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collide_with_areas"), "set_collide_with_areas", "is_collide_with_areas_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collide_with_bodies"), "set_collide_with_bodies", "is_collide_with_bodies_enabled");
