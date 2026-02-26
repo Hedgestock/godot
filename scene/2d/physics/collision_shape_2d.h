@@ -91,7 +91,7 @@ public:
 	void set_debug_color(const Color &p_color);
 	Color get_debug_color() const;
 
-	void set_rendering(bool p_disabled);
+	void set_rendering(bool p_rendering);
 	bool is_rendering() const;
 
 	PackedStringArray get_configuration_warnings() const override;
