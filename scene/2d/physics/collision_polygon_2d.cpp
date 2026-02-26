@@ -125,7 +125,7 @@ void CollisionPolygon2D::_notification(int p_what) {
 
 		case NOTIFICATION_DRAW: {
 			ERR_FAIL_COND(!is_inside_tree());
-			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint()) {
+			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint() && !is_rendering()) {
 				break;
 			}
 
@@ -268,6 +268,15 @@ bool CollisionPolygon2D::is_disabled() const {
 	return disabled;
 }
 
+void CollisionPolygon2D::set_rendering(bool p_rendering) {
+	rendering = p_rendering;
+	queue_redraw();
+}
+
+bool CollisionPolygon2D::is_rendering() const {
+	return rendering;
+}
+
 void CollisionPolygon2D::set_one_way_collision(bool p_enable) {
 	one_way_collision = p_enable;
 	queue_redraw();
@@ -322,10 +331,13 @@ void CollisionPolygon2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_one_way_collision_margin"), &CollisionPolygon2D::get_one_way_collision_margin);
 	ClassDB::bind_method(D_METHOD("set_one_way_collision_direction", "direction"), &CollisionPolygon2D::set_one_way_collision_direction);
 	ClassDB::bind_method(D_METHOD("get_one_way_collision_direction"), &CollisionPolygon2D::get_one_way_collision_direction);
+	ClassDB::bind_method(D_METHOD("set_rendering", "rendering"), &CollisionPolygon2D::set_rendering);
+	ClassDB::bind_method(D_METHOD("is_rendering"), &CollisionPolygon2D::is_rendering);
 
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "build_mode", PROPERTY_HINT_ENUM, "Solids,Segments"), "set_build_mode", "get_build_mode");
 	ADD_PROPERTY(PropertyInfo(Variant::PACKED_VECTOR2_ARRAY, "polygon"), "set_polygon", "get_polygon");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "disabled"), "set_disabled", "is_disabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rendering"), "set_rendering", "is_rendering");
 
 	ADD_GROUP("One Way Collision", "one_way_collision");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "one_way_collision", PROPERTY_HINT_GROUP_ENABLE), "set_one_way_collision", "is_one_way_collision_enabled");
