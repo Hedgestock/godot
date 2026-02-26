@@ -54,6 +54,7 @@ class RayCast2D : public Node2D {
 	bool collide_with_bodies = true;
 
 	bool hit_from_inside = false;
+	bool rendering = false;
 
 	void _draw_debug_shape();
 
@@ -74,6 +75,9 @@ public:
 
 	void set_enabled(bool p_enabled);
 	bool is_enabled() const;
+
+	void set_rendering(bool p_rendering);
+	bool is_rendering() const;
 
 	void set_target_position(const Vector2 &p_point);
 	Vector2 get_target_position() const;

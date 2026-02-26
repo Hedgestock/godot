@@ -35,7 +35,7 @@
 
 void RayCast2D::set_target_position(const Vector2 &p_point) {
 	target_position = p_point;
-	if (is_inside_tree() && (Engine::get_singleton()->is_editor_hint() || get_tree()->is_debugging_collisions_hint())) {
+	if (is_inside_tree() && (Engine::get_singleton()->is_editor_hint() || get_tree()->is_debugging_collisions_hint() || is_rendering())) {
 		queue_redraw();
 	}
 }
@@ -163,7 +163,7 @@ void RayCast2D::_notification(int p_what) {
 
 		case NOTIFICATION_DRAW: {
 			ERR_FAIL_COND(!is_inside_tree());
-			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint()) {
+			if (!Engine::get_singleton()->is_editor_hint() && !get_tree()->is_debugging_collisions_hint() && !is_rendering()) {
 				break;
 			}
 			_draw_debug_shape();
@@ -316,6 +316,15 @@ bool RayCast2D::is_hit_from_inside_enabled() const {
 	return hit_from_inside;
 }
 
+void RayCast2D::set_rendering(bool p_rendering) {
+	rendering = p_rendering;
+	queue_redraw();
+}
+
+bool RayCast2D::is_rendering() const {
+	return rendering;
+}
+
 void RayCast2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_enabled", "enabled"), &RayCast2D::set_enabled);
 	ClassDB::bind_method(D_METHOD("is_enabled"), &RayCast2D::is_enabled);
@@ -358,11 +367,15 @@ void RayCast2D::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_hit_from_inside", "enable"), &RayCast2D::set_hit_from_inside);
 	ClassDB::bind_method(D_METHOD("is_hit_from_inside_enabled"), &RayCast2D::is_hit_from_inside_enabled);
 
+	ClassDB::bind_method(D_METHOD("set_rendering", "rendering"), &RayCast2D::set_rendering);
+	ClassDB::bind_method(D_METHOD("is_rendering"), &RayCast2D::is_rendering);
+
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "enabled"), "set_enabled", "is_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "exclude_parent"), "set_exclude_parent_body", "get_exclude_parent_body");
 	ADD_PROPERTY(PropertyInfo(Variant::VECTOR2, "target_position", PROPERTY_HINT_NONE, "suffix:px"), "set_target_position", "get_target_position");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "collision_mask", PROPERTY_HINT_LAYERS_2D_PHYSICS), "set_collision_mask", "get_collision_mask");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "hit_from_inside"), "set_hit_from_inside", "is_hit_from_inside_enabled");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "rendering"), "set_rendering", "is_rendering");
 
 	ADD_GROUP("Collide With", "collide_with");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "collide_with_areas"), "set_collide_with_areas", "is_collide_with_areas_enabled");

@@ -33,7 +33,6 @@
 		</member>
 		<member name="rendering" type="bool" setter="set_rendering" getter="is_rendering" default="false">
 			Sets whether this collision shape should render to the screen.
-			Useful in fighting games training mode for instance where you want the player to be able to see hitboxes and hurtboxes.
 		</member>
 		<member name="shape" type="Shape2D" setter="set_shape" getter="get_shape">
 			The actual shape owned by this collision shape.
