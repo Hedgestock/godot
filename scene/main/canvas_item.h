@@ -32,11 +32,12 @@
 
 #include "scene/main/node.h"
 #include "scene/resources/texture.h"
-#include "servers/rendering/rendering_server.h"
+#include "servers/rendering/rendering_server_enums.h"
 #include "servers/text/text_server.h"
 
 class CanvasLayer;
 class Font;
+class Material;
 class Mesh;
 class MultiMesh;
 class StyleBox;
@@ -75,6 +76,13 @@ public:
 		CLIP_CHILDREN_ONLY,
 		CLIP_CHILDREN_AND_DRAW,
 		CLIP_CHILDREN_MAX,
+	};
+
+	enum OversamplingWithScale {
+		OVERSAMPLING_WITH_SCALE_PARENT_NODE,
+		OVERSAMPLING_WITH_SCALE_DISABLED,
+		OVERSAMPLING_WITH_SCALE_ENABLED,
+		OVERSAMPLING_WITH_SCALE_MAX,
 	};
 
 private:
@@ -118,11 +126,21 @@ private:
 	bool notify_local_transform = false;
 	bool notify_transform = false;
 	bool hide_clip_children = false;
+#ifdef TOOLS_ENABLED
+	mutable HashMap<StringName, StringName> instance_parameter_cache;
+#endif
+	OversamplingWithScale oversampling_with_scale = OVERSAMPLING_WITH_SCALE_PARENT_NODE;
+	double oversampling_override = -1.0;
+	bool is_oversampling_with_scale_cache = false;
+	double oversampling_override_cache = -1.0;
+
+	void _update_oversampling(bool p_propagate = false);
+	bool _is_oversampling_with_scale() const;
 
 	ClipChildrenMode clip_children_mode = CLIP_CHILDREN_DISABLED;
 
-	mutable RS::CanvasItemTextureFilter texture_filter_cache = RS::CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
-	mutable RS::CanvasItemTextureRepeat texture_repeat_cache = RS::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED;
+	mutable RSE::CanvasItemTextureFilter texture_filter_cache = RSE::CANVAS_ITEM_TEXTURE_FILTER_LINEAR;
+	mutable RSE::CanvasItemTextureRepeat texture_repeat_cache = RSE::CANVAS_ITEM_TEXTURE_REPEAT_DISABLED;
 	TextureFilter texture_filter = TEXTURE_FILTER_PARENT_NODE;
 	TextureRepeat texture_repeat = TEXTURE_REPEAT_PARENT_NODE;
 
@@ -167,11 +185,15 @@ protected:
 	bool _set(const StringName &p_name, const Variant &p_value);
 	bool _get(const StringName &p_name, Variant &r_ret) const;
 	void _get_property_list(List<PropertyInfo> *p_list) const;
+#ifdef TOOLS_ENABLED
+	bool _property_can_revert(const StringName &p_name) const;
+	bool _property_get_revert(const StringName &p_name, Variant &r_property) const;
+#endif
 
 	virtual void _physics_interpolated_changed() override;
 
-	virtual void _update_self_texture_repeat(RS::CanvasItemTextureRepeat p_texture_repeat);
-	virtual void _update_self_texture_filter(RS::CanvasItemTextureFilter p_texture_filter);
+	virtual void _update_self_texture_repeat(RSE::CanvasItemTextureRepeat p_texture_repeat);
+	virtual void _update_self_texture_filter(RSE::CanvasItemTextureFilter p_texture_filter);
 
 	_FORCE_INLINE_ void _notify_transform() {
 		_notify_transform(this);
@@ -210,7 +232,7 @@ protected:
 
 public:
 	enum {
-		NOTIFICATION_TRANSFORM_CHANGED = SceneTree::NOTIFICATION_TRANSFORM_CHANGED, //unique
+		NOTIFICATION_TRANSFORM_CHANGED = 2000, // Keep in sync with SceneTree.
 		NOTIFICATION_DRAW = 30,
 		NOTIFICATION_VISIBILITY_CHANGED = 31,
 		NOTIFICATION_ENTER_CANVAS = 32,
@@ -413,6 +435,9 @@ public:
 	TextureFilter get_texture_filter_in_tree() const;
 	TextureRepeat get_texture_repeat_in_tree() const;
 
+	OversamplingWithScale get_oversampling_with_scale() const;
+	void set_oversampling_with_scale(OversamplingWithScale p_mode);
+
 	// Used by control nodes to retrieve the parent's anchorable area
 	virtual Rect2 get_anchorable_rect() const { return Rect2(0, 0, 0, 0); }
 
@@ -428,6 +453,7 @@ public:
 VARIANT_ENUM_CAST(CanvasItem::TextureFilter)
 VARIANT_ENUM_CAST(CanvasItem::TextureRepeat)
 VARIANT_ENUM_CAST(CanvasItem::ClipChildrenMode)
+VARIANT_ENUM_CAST(CanvasItem::OversamplingWithScale)
 
 class CanvasTexture : public Texture2D {
 	GDCLASS(CanvasTexture, Texture2D);

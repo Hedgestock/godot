@@ -37,7 +37,9 @@ import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.os.Debug
@@ -145,6 +147,8 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 		internal const val GAME_MENU_ACTION_SET_NODE_TYPE = "setNodeType"
 		internal const val GAME_MENU_ACTION_SET_SELECT_MODE = "setSelectMode"
 		internal const val GAME_MENU_ACTION_SET_SELECTION_VISIBLE = "setSelectionVisible"
+		internal const val GAME_MENU_ACTION_SET_SELECTION_AVOID_LOCKED = "setSelectionAvoidLocked"
+		internal const val GAME_MENU_ACTION_SET_SELECTION_PREFER_GROUP = "setSelectionPreferGroup"
 		internal const val GAME_MENU_ACTION_SET_CAMERA_OVERRIDE = "setCameraOverride"
 		internal const val GAME_MENU_ACTION_SET_CAMERA_MANIPULATE_MODE = "setCameraManipulateMode"
 		internal const val GAME_MENU_ACTION_RESET_CAMERA_2D_POSITION = "resetCamera2DPosition"
@@ -155,6 +159,7 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 		internal const val GAME_MENU_ACTION_SET_TIME_SCALE = "setTimeScale"
 
 		private const val GAME_WORKSPACE = "Game"
+		private const val SCRIPT_WORKSPACE = "Script"
 
 		internal const val SNACKBAR_SHOW_DURATION_MS = 5000L
 
@@ -202,6 +207,11 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 	protected val gameMenuState = Bundle()
 
 	private val updatedCommandLineParams = ArrayList<String>()
+
+	private var changingOrientationAllowed = false
+	private var distractionFreeModeEnabled = false
+	private var activeWorkspace: String? = null
+	private var currentOrientation = Configuration.ORIENTATION_UNDEFINED
 
 	override fun getGodotAppLayout() = R.layout.godot_editor_layout
 
@@ -267,6 +277,25 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 
 		// Add the game menu bar.
 		setupGameMenuBar()
+
+		if (!isLargeScreen && !isNativeXRDevice(applicationContext) && godot?.isEditorHint() == true) {
+			// Lock the editor screen orientation to landscape on small screens.
+			changingOrientationAllowed = true
+			requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+			changingOrientationAllowed = false
+		}
+	}
+
+	override fun onConfigurationChanged(newConfig: Configuration) {
+		super.onConfigurationChanged(newConfig)
+
+		// Some editor parts are hidden on small screens due to width limitations in portrait.
+		if (!isLargeScreen && currentOrientation != newConfig.orientation) {
+			currentOrientation = newConfig.orientation
+			godot?.runOnRenderThread {
+				EditorUtils.orientationChanged(currentOrientation == Configuration.ORIENTATION_PORTRAIT)
+			}
+		}
 	}
 
 	override fun onDestroy() {
@@ -435,6 +464,7 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 		val longPressEnabled = enableLongPressGestures()
 		val panScaleEnabled = enablePanAndScaleGestures()
 		val overrideVolumeButtonsEnabled = overrideVolumeButtons()
+		val hapticEnabled = enableHapticOnLongPress()
 
 		runOnUiThread {
 			// Enable long press, panning and scaling gestures
@@ -442,6 +472,7 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 				enableLongPress(longPressEnabled)
 				enablePanningAndScalingGestures(panScaleEnabled)
 				setOverrideVolumeButtons(overrideVolumeButtonsEnabled)
+				enableHapticFeedback(hapticEnabled)
 			}
 		}
 	}
@@ -696,7 +727,7 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 	/**
 	 * The Godot Android Editor sets its own orientation via its AndroidManifest
 	 */
-	protected open fun overrideOrientationRequest() = true
+	protected open fun overrideOrientationRequest() = isLargeScreen || godot?.isProjectManagerHint() == true || !changingOrientationAllowed
 
 	protected open fun overrideVolumeButtons() = false
 
@@ -705,6 +736,12 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 	 */
 	protected open fun enableLongPressGestures() =
 		java.lang.Boolean.parseBoolean(GodotLib.getEditorSetting("interface/touchscreen/enable_long_press_as_right_click"))
+
+	/**
+	 * Enable haptic feedback on long-press right-click for the Godot Android editor.
+	 */
+	protected open fun enableHapticOnLongPress() =
+		java.lang.Boolean.parseBoolean(GodotLib.getEditorSetting("interface/touchscreen/haptic_on_long_press"))
 
 	/**
 	 * Disable scroll deadzone for the Godot Android editor.
@@ -894,6 +931,8 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 	}
 
 	override fun onEditorWorkspaceSelected(workspace: String) {
+		activeWorkspace = workspace
+
 		if (workspace == GAME_WORKSPACE && shouldShowGameMenuBar()) {
 			if (editorMessageDispatcher.bringEditorWindowToFront(EMBEDDED_RUN_GAME_INFO) || editorMessageDispatcher.bringEditorWindowToFront(RUN_GAME_INFO)) {
 				return
@@ -905,6 +944,27 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 				updateEmbeddedGameView(xrGameRunning, gameEmbedMode != GameEmbedMode.DISABLED)
 				embeddedGameViewContainerWindow?.isVisible = true
 			}
+		}
+
+		if (!isLargeScreen) {
+			toggleScriptEditorOrientation()
+		}
+	}
+
+	override fun onDistractionFreeModeChanged(enabled: Boolean) {
+		distractionFreeModeEnabled = enabled
+		if (!isLargeScreen) {
+			toggleScriptEditorOrientation()
+		}
+	}
+
+	private fun toggleScriptEditorOrientation() {
+		if (activeWorkspace == SCRIPT_WORKSPACE && distractionFreeModeEnabled) {
+			changingOrientationAllowed = true
+			requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER
+		} else if (changingOrientationAllowed) {
+			requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_USER_LANDSCAPE
+			changingOrientationAllowed = false
 		}
 	}
 
@@ -937,6 +997,14 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 			GAME_MENU_ACTION_SET_SELECTION_VISIBLE -> {
 				val enabled = actionData.getBoolean(KEY_GAME_MENU_ACTION_PARAM1)
 				toggleSelectionVisibility(enabled)
+			}
+			GAME_MENU_ACTION_SET_SELECTION_AVOID_LOCKED -> {
+				val enabled = actionData.getBoolean(KEY_GAME_MENU_ACTION_PARAM1)
+				toggleSelectionAvoidLocked(enabled)
+			}
+			GAME_MENU_ACTION_SET_SELECTION_PREFER_GROUP -> {
+				val enabled = actionData.getBoolean(KEY_GAME_MENU_ACTION_PARAM1)
+				toggleSelectionPreferGroup(enabled)
 			}
 			GAME_MENU_ACTION_SET_CAMERA_OVERRIDE -> {
 				val enabled = actionData.getBoolean(KEY_GAME_MENU_ACTION_PARAM1)
@@ -995,6 +1063,20 @@ abstract class BaseGodotEditor : GodotActivity(), GameMenuFragment.GameMenuListe
 		gameMenuState.putBoolean(GAME_MENU_ACTION_SET_SELECTION_VISIBLE, enabled)
 		godot?.runOnRenderThread {
 			GameMenuUtils.setSelectionVisible(enabled)
+		}
+	}
+
+	override fun toggleSelectionAvoidLocked(enabled: Boolean) {
+		gameMenuState.putBoolean(GAME_MENU_ACTION_SET_SELECTION_AVOID_LOCKED, enabled)
+		godot?.runOnRenderThread {
+			GameMenuUtils.setSelectionAvoidLocked(enabled)
+		}
+	}
+
+	override fun toggleSelectionPreferGroup(enabled: Boolean) {
+		gameMenuState.putBoolean(GAME_MENU_ACTION_SET_SELECTION_PREFER_GROUP, enabled)
+		godot?.runOnRenderThread {
+			GameMenuUtils.setSelectionPreferGroup(enabled)
 		}
 	}
 

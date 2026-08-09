@@ -30,14 +30,20 @@
 
 #include "test_main.h"
 
+#include "core/config/engine.h"
 #include "core/input/input.h"
 #include "core/input/input_map.h"
 #include "core/io/dir_access.h"
+#include "core/object/worker_thread_pool.h"
+#include "core/os/os.h"
 #include "core/string/translation_server.h"
+#include "scene/main/scene_tree.h"
 #include "scene/main/window.h"
 #include "scene/theme/theme_db.h"
+#include "servers/audio/audio_driver.h"
 #include "servers/audio/audio_server.h"
-#include "servers/rendering/rendering_server_default.h"
+#include "servers/display/accessibility_server.h"
+#include "servers/rendering/rendering_server.h"
 #include "tests/display_server_mock.h"
 #include "tests/force_link.gen.h"
 #include "tests/signal_watcher.h"
@@ -51,18 +57,22 @@
 
 #ifndef NAVIGATION_2D_DISABLED
 #include "servers/navigation_2d/navigation_server_2d.h"
+#include "servers/navigation_2d/navigation_server_2d_manager.h"
 #endif // NAVIGATION_2D_DISABLED
 #ifndef NAVIGATION_3D_DISABLED
 #include "servers/navigation_3d/navigation_server_3d.h"
+#include "servers/navigation_3d/navigation_server_3d_manager.h"
 #endif // NAVIGATION_3D_DISABLED
 
 #ifndef PHYSICS_2D_DISABLED
 #include "servers/physics_2d/physics_server_2d.h"
 #include "servers/physics_2d/physics_server_2d_dummy.h"
+#include "servers/physics_2d/physics_server_2d_manager.h"
 #endif // PHYSICS_2D_DISABLED
 #ifndef PHYSICS_3D_DISABLED
 #include "servers/physics_3d/physics_server_3d.h"
 #include "servers/physics_3d/physics_server_3d_dummy.h"
+#include "servers/physics_3d/physics_server_3d_manager.h"
 #endif // PHYSICS_3D_DISABLED
 
 #include "modules/modules_tests.gen.h" // IWYU pragma: keep // TODO: Migrate module tests to compilation files.
@@ -169,22 +179,25 @@ struct GodotTestCaseListener : public doctest::IReporter {
 		String suite_name = String(p_in.m_test_suite);
 
 		if (name.contains("[SceneTree]") || name.contains("[Editor]")) {
-			memnew(MessageQueue);
-
 			memnew(Input);
 			Input::get_singleton()->set_use_accumulated_input(false);
 
 			Error err = OK;
 			OS::get_singleton()->set_has_server_feature_callback(nullptr);
-			for (int i = 0; i < DisplayServer::get_create_function_count(); i++) {
-				if (String("mock") == DisplayServer::get_create_function_name(i)) {
-					DisplayServer::create(i, "", DisplayServer::WindowMode::WINDOW_MODE_MINIMIZED, DisplayServer::VSyncMode::VSYNC_ENABLED, 0, nullptr, Vector2i(0, 0), DisplayServer::SCREEN_PRIMARY, DisplayServer::CONTEXT_EDITOR, 0, err);
+
+			for (int i = 0; i < AccessibilityServer::get_create_function_count(); i++) {
+				if (String("dummy") == AccessibilityServer::get_create_function_name(i)) {
+					AccessibilityServer::create(i, err);
 					break;
 				}
 			}
-			memnew(RenderingServerDefault());
-			RenderingServerDefault::get_singleton()->init();
-			RenderingServerDefault::get_singleton()->set_render_loop_enabled(false);
+
+			for (int i = 0; i < DisplayServer::get_create_function_count(); i++) {
+				if (String("mock") == DisplayServer::get_create_function_name(i)) {
+					DisplayServer::create(i, "", DisplayServerEnums::WindowMode::WINDOW_MODE_MINIMIZED, DisplayServerEnums::VSyncMode::VSYNC_ENABLED, 0, nullptr, Vector2i(0, 0), DisplayServerEnums::SCREEN_PRIMARY, DisplayServerEnums::CONTEXT_EDITOR, 0, err);
+					break;
+				}
+			}
 
 			// ThemeDB requires RenderingServer to initialize the default theme.
 			// So we have to do this for each test case. Also make sure there is
@@ -222,7 +235,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 
 			memnew(SceneTree);
 			SceneTree::get_singleton()->initialize();
-			if (!DisplayServer::get_singleton()->has_feature(DisplayServer::Feature::FEATURE_SUBWINDOWS)) {
+			if (!DisplayServer::get_singleton()->has_feature(DisplayServerEnums::FEATURE_SUBWINDOWS)) {
 				SceneTree::get_singleton()->get_root()->set_embedding_subwindows(true);
 			}
 
@@ -288,9 +301,7 @@ struct GodotTestCaseListener : public doctest::IReporter {
 			MessageQueue::get_singleton()->flush();
 		}
 
-		if (SceneTree::get_singleton()) {
-			memdelete(SceneTree::get_singleton());
-		}
+		memdelete(SceneTree::get_singleton());
 
 #ifndef NAVIGATION_3D_DISABLED
 		if (navigation_server_3d) {
@@ -322,33 +333,15 @@ struct GodotTestCaseListener : public doctest::IReporter {
 		}
 #endif // PHYSICS_2D_DISABLED
 
-		if (Input::get_singleton()) {
-			memdelete(Input::get_singleton());
-		}
+		memdelete(Input::get_singleton());
 
 		if (RenderingServer::get_singleton()) {
-			// ThemeDB requires RenderingServer to finalize the default theme.
-			// So we have to do this for each test case.
 			ThemeDB::get_singleton()->finalize_theme();
-
-			RenderingServer::get_singleton()->sync();
-			RenderingServer::get_singleton()->global_shader_parameters_clear();
-			RenderingServer::get_singleton()->finish();
-			memdelete(RenderingServer::get_singleton());
 		}
 
-		if (DisplayServer::get_singleton()) {
-			memdelete(DisplayServer::get_singleton());
-		}
-
-		if (InputMap::get_singleton()) {
-			memdelete(InputMap::get_singleton());
-		}
-
-		if (MessageQueue::get_singleton()) {
-			MessageQueue::get_singleton()->flush();
-			memdelete(MessageQueue::get_singleton());
-		}
+		memdelete(AccessibilityServer::get_singleton());
+		memdelete(DisplayServer::get_singleton());
+		memdelete(InputMap::get_singleton());
 
 		if (AudioServer::get_singleton()) {
 			AudioServer::get_singleton()->finish();

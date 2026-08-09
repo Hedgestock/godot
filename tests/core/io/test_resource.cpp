@@ -35,6 +35,7 @@ TEST_FORCE_LINK(test_resource)
 #include "core/io/resource.h"
 #include "core/io/resource_loader.h"
 #include "core/io/resource_saver.h"
+#include "core/object/class_db.h"
 #include "scene/main/node.h"
 #include "tests/test_utils.h"
 
@@ -248,9 +249,7 @@ public:
 
 	virtual ~DuplicateGuineaPigData() {
 		Object *obj_ptr = obj.get_validated_object();
-		if (obj_ptr) {
-			memdelete(obj_ptr);
-		}
+		memdelete(obj_ptr);
 	}
 };
 
@@ -349,7 +348,7 @@ public:
 		} \
 \
 	public: \
-		static m_class_name *register_and_instantiate() { \
+		static Ref<m_class_name> register_and_instantiate() { \
 			static bool registered = false; \
 			if (!registered) { \
 				GDREGISTER_CLASS(m_class_name); \

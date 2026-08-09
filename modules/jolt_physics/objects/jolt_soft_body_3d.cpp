@@ -38,9 +38,11 @@
 #include "jolt_body_3d.h"
 #include "jolt_group_filter.h"
 
+#include "core/config/engine.h"
+#include "servers/physics_3d/physics_server_3d_rendering_server_handler.h"
 #include "servers/rendering/rendering_server.h"
 
-#include "Jolt/Physics/SoftBody/SoftBodyMotionProperties.h"
+#include <Jolt/Physics/SoftBody/SoftBodyMotionProperties.h>
 
 namespace {
 
@@ -130,10 +132,10 @@ JPH::SoftBodySharedSettings *JoltSoftBody3D::_create_shared_settings() {
 	const Array mesh_data = rendering->mesh_surface_get_arrays(mesh, 0);
 	ERR_FAIL_COND_V(mesh_data.is_empty(), nullptr);
 
-	const PackedInt32Array mesh_indices = mesh_data[RenderingServer::ARRAY_INDEX];
+	const PackedInt32Array mesh_indices = mesh_data[RSE::ARRAY_INDEX];
 	ERR_FAIL_COND_V(mesh_indices.is_empty(), nullptr);
 
-	const PackedVector3Array mesh_vertices = mesh_data[RenderingServer::ARRAY_VERTEX];
+	const PackedVector3Array mesh_vertices = mesh_data[RSE::ARRAY_VERTEX];
 	ERR_FAIL_COND_V(mesh_vertices.is_empty(), nullptr);
 
 	JPH::SoftBodySharedSettings *settings = new JPH::SoftBodySharedSettings();
@@ -228,9 +230,9 @@ JPH::SoftBodySharedSettings *JoltSoftBody3D::_create_shared_settings() {
 	return settings;
 }
 
-void JoltSoftBody3D::_apply_environmental_forces(float p_step, JPH::Body &p_jolt_body) {
+void JoltSoftBody3D::_apply_environmental_forces(float p_step) {
 	// Get approximation of the center of the soft body.
-	Vector3 com_position = to_godot(p_jolt_body.GetCenterOfMassPosition());
+	Vector3 com_position = to_godot(jolt_body->GetCenterOfMassPosition());
 
 	// Calculate gravity and which areas affect the soft body through wind.
 	bool gravity_done = false;
@@ -254,10 +256,10 @@ void JoltSoftBody3D::_apply_environmental_forces(float p_step, JPH::Body &p_jolt
 	}
 
 	// Apply gravity to soft body. Note that this only works so long as vertices have uniform mass (excluding pinned vertices).
-	p_jolt_body.AddForce(to_jolt(gravity) * mass);
+	jolt_body->AddForce(to_jolt(gravity) * mass);
 
 	if (!wind_areas.is_empty()) {
-		JPH::SoftBodyMotionProperties &motion_properties = static_cast<JPH::SoftBodyMotionProperties &>(*p_jolt_body.GetMotionPropertiesUnchecked());
+		JPH::SoftBodyMotionProperties &motion_properties = static_cast<JPH::SoftBodyMotionProperties &>(*jolt_body->GetMotionPropertiesUnchecked());
 		JPH::Array<JPH::SoftBodyVertex> &physics_vertices = motion_properties.GetVertices();
 
 		for (const JPH::SoftBodySharedSettings::Face &physics_face : motion_properties.GetFaces()) {
@@ -486,8 +488,8 @@ Vector3 JoltSoftBody3D::get_velocity_at_position(const Vector3 &p_position) cons
 	return Vector3();
 }
 
-void JoltSoftBody3D::pre_step(float p_step, JPH::Body &p_jolt_body) {
-	_apply_environmental_forces(p_step, p_jolt_body);
+void JoltSoftBody3D::pre_step(float p_step) {
+	_apply_environmental_forces(p_step);
 }
 
 void JoltSoftBody3D::set_mesh(const RID &p_mesh) {
@@ -647,21 +649,21 @@ void JoltSoftBody3D::set_drag(float p_drag) {
 	// Drag is not a thing in Jolt, and not supported by Godot Physics either.
 }
 
-Variant JoltSoftBody3D::get_state(PhysicsServer3D::BodyState p_state) const {
+Variant JoltSoftBody3D::get_state(PS3DE::BodyState p_state) const {
 	switch (p_state) {
-		case PhysicsServer3D::BODY_STATE_TRANSFORM: {
+		case PS3DE::BODY_STATE_TRANSFORM: {
 			return get_transform();
 		}
-		case PhysicsServer3D::BODY_STATE_LINEAR_VELOCITY: {
+		case PS3DE::BODY_STATE_LINEAR_VELOCITY: {
 			ERR_FAIL_V_MSG(Variant(), "Linear velocity is not supported for soft bodies.");
 		}
-		case PhysicsServer3D::BODY_STATE_ANGULAR_VELOCITY: {
+		case PS3DE::BODY_STATE_ANGULAR_VELOCITY: {
 			ERR_FAIL_V_MSG(Variant(), "Angular velocity is not supported for soft bodies.");
 		}
-		case PhysicsServer3D::BODY_STATE_SLEEPING: {
+		case PS3DE::BODY_STATE_SLEEPING: {
 			return is_sleeping();
 		}
-		case PhysicsServer3D::BODY_STATE_CAN_SLEEP: {
+		case PS3DE::BODY_STATE_CAN_SLEEP: {
 			return is_sleep_allowed();
 		}
 		default: {
@@ -670,21 +672,21 @@ Variant JoltSoftBody3D::get_state(PhysicsServer3D::BodyState p_state) const {
 	}
 }
 
-void JoltSoftBody3D::set_state(PhysicsServer3D::BodyState p_state, const Variant &p_value) {
+void JoltSoftBody3D::set_state(PS3DE::BodyState p_state, const Variant &p_value) {
 	switch (p_state) {
-		case PhysicsServer3D::BODY_STATE_TRANSFORM: {
+		case PS3DE::BODY_STATE_TRANSFORM: {
 			set_transform(p_value);
 		} break;
-		case PhysicsServer3D::BODY_STATE_LINEAR_VELOCITY: {
+		case PS3DE::BODY_STATE_LINEAR_VELOCITY: {
 			ERR_FAIL_MSG("Linear velocity is not supported for soft bodies.");
 		} break;
-		case PhysicsServer3D::BODY_STATE_ANGULAR_VELOCITY: {
+		case PS3DE::BODY_STATE_ANGULAR_VELOCITY: {
 			ERR_FAIL_MSG("Angular velocity is not supported for soft bodies.");
 		} break;
-		case PhysicsServer3D::BODY_STATE_SLEEPING: {
+		case PS3DE::BODY_STATE_SLEEPING: {
 			set_is_sleeping(p_value);
 		} break;
-		case PhysicsServer3D::BODY_STATE_CAN_SLEEP: {
+		case PS3DE::BODY_STATE_CAN_SLEEP: {
 			set_is_sleep_allowed(p_value);
 		} break;
 		default: {
